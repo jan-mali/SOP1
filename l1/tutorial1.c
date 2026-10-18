@@ -2,16 +2,18 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <sys/stat.h>
 
-int main(void) {
+#define MAX_PATH 101
+
+void scan_cwd(void) {
     DIR* dir = opendir(".");
     if (!dir) {
         perror("opendir");
-        return EXIT_FAILURE;
+        exit(EXIT_FAILURE);
     }
-
-    int ret = EXIT_SUCCESS;
 
     int dev_blk = 0;
     int dev_chr = 0;
@@ -28,8 +30,7 @@ int main(void) {
         if (!entry) {
             if (errno) {
                 perror("readdir");
-                ret = EXIT_FAILURE;
-                goto cleanup;
+                goto fail;
             }
 
             break;
@@ -38,8 +39,7 @@ int main(void) {
         struct stat stat;
         if(lstat(entry->d_name, &stat) != 0) {
             perror("lstat");
-            ret = EXIT_FAILURE;
-            goto cleanup;
+            goto fail;
         }
 
         mode_t mode = stat.st_mode;
@@ -57,12 +57,54 @@ int main(void) {
     printf("Block devices: %3d. Character devices: %3d.\n", dev_blk, dev_chr);
     printf("FIFOs: %3d.   Symlinks: %3d.  Sockets: %3d.\n", ino_fifo, ino_link, ino_sock);
 
-cleanup:
-
     if (closedir(dir) != 0) {
         perror("closedir");
-        ret = EXIT_FAILURE;
     }
 
-    return ret;
+    return;
+
+fail:
+    if (closedir(dir) != 0) {
+        perror("closedir");
+    }
+
+    exit(EXIT_FAILURE);
+}
+
+int main(int argc, char** argv) {
+    if (argc == 1) {
+        printf("Statistics for directory .:\n");
+        scan_cwd();
+        return EXIT_SUCCESS;
+    }
+
+    char cwd[MAX_PATH];
+
+    if(!getcwd(cwd, MAX_PATH)) {
+        perror("getcwd");
+        return EXIT_FAILURE;
+    }
+
+    for (int i = 1; i < argc; i++) {
+        const char* path = argv[i];
+
+        if (i > 1)
+            printf("\n");
+
+        if(chdir(path) != 0) {
+            fprintf(stderr, "Failed to chdir(%s): %s\n", path, strerror(errno));
+            continue;
+        }
+
+        printf("Statistics for directory %s:\n", path);
+
+        scan_cwd();        
+
+        if(chdir(cwd) != 0) {
+            perror("chdir");
+            return EXIT_FAILURE;
+        }
+    }
+
+    return EXIT_SUCCESS;
 }
