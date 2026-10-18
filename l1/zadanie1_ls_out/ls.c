@@ -31,6 +31,12 @@ int main(int argc, char** argv) {
             }
 
             break;
+        
+        case ':':
+        case '?':
+            usage(argv[0]);
+            exit(EXIT_FAILURE);
+            break;
         }
     }
 
@@ -68,8 +74,8 @@ void list_cwd(FILE* output_stream, const char* path) {
     DIR* dir_stream;
 
     if ((dir_stream = opendir(path)) == NULL) {
-        perror("Failed to open the directory");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "Failed to open the directory %s: %s\n", path, strerror(errno));
+        return;
     }
 
     fprintf(output_stream, "PATH: %s\n", path);
