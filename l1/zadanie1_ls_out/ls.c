@@ -8,19 +8,46 @@
 #include <fcntl.h>
 
 void list_cwd(FILE* output_stream, const char* path);
+void usage(const char* argv0);
 
 int main(int argc, char** argv) {
     int c;
     int printed_count = 0;
 
+    FILE* output_stream = NULL;
+
+    while ((c = getopt(argc, argv, ":p:o:")) != -1) {
+        switch (c) {
+        case 'o':
+            if (output_stream) {
+                fprintf(stderr, "Only one -o option is allowed\n");
+                usage(argv[0]);
+                exit(EXIT_FAILURE);
+            }
+
+            if ((output_stream = fopen(optarg, "w")) == NULL) {
+                perror("Failed to open the output file");
+                exit(EXIT_FAILURE);
+            }
+
+            break;
+        }
+    }
+
+    if (!output_stream) {
+        output_stream = stdout;
+    }
+
+    optind = 0;
+
     while ((c = getopt(argc, argv, ":p:")) != -1) {
         switch (c) {
         case 'p':
             if (printed_count > 0) {
-                fprintf(stdout, "\n");
+                fprintf(output_stream, "\n");
             }
 
-            list_cwd(stdout, optarg);
+            list_cwd(output_stream, optarg);
             printed_count++;
 
             break;
@@ -28,7 +55,8 @@ int main(int argc, char** argv) {
     }
 
     if (!printed_count){
-        list_cwd(stdout, ".");
+        usage(argv[0]);
+        exit(EXIT_FAILURE);
     }
 
     return EXIT_SUCCESS;
@@ -87,4 +115,9 @@ fail:
         perror("Failed to close the directory");
         exit(EXIT_FAILURE);
     }
+}
+
+void usage(const char* argv0) {
+    fprintf(stderr, "Usage:\n");
+    fprintf(stderr, "\t %s [-p <directory>]... [-o <output file>]\n", argv0);
 }
